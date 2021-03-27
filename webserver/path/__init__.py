@@ -1,298 +1,417 @@
-from http import HTTPStatus # for status codes
 from enum import Enum
+from http import HTTPStatus
 import json
 
-class Methods:
-
-    GET: bool
-    POST: bool
-
-    def __init__(self, *args):
-
-        calculated_args = []
-
-        for index, arg in enumerate(args):
-            calculated_args.append(str.lower(arg))
-        
-        self.GET = True if "get" in calculated_args else False
-        self.POST = True if "post" in calculated_args else False
-
-        if self.GET == False and self.POST == False:
-            raise ValueError('Method cannot have no methods.')
+class HTTPMethod(Enum):
+    GET = 'GET'
+    POST = 'POST'
+    
+    def __str__(self) -> str:
+        return self.name
+    
+    @property
+    def obj(self) -> str:
+        return self.name
     
     @classmethod
     def load(cls, obj):
-        get = obj['GET']
-        post = obj['POST']
-        args = []
-        if get:
-            args.append('GET')
-        if post:
-            args.append('POST')
-        return cls(*args)
-    
-    def __str__(self):
-        if self.GET and self.POST:
-            return "GET & POST"
-        elif self.GET:
-            return "GET"
-        elif self.POST:
-            return "POST"
-    
-    def getMethodList(self):
-        methods = []
-        if self.GET:
-            methods.append('GET')
-        if self.POST:
-            methods.append('POST')
-        return methods
+        return cls(obj)
 
-    def getObject(self):
+class HTTPPath:
+    url: str
+    _method: HTTPMethod
+    requireAuth: bool
+    requireMasterAuth: bool
+
+    def __init__(self, url: str, method: HTTPMethod = HTTPMethod.GET, requireAuth: bool = False, requireMasterAuth: bool = False):
+        self.url = url
+        self.method = method
+        self.requireAuth = requireAuth
+        self.requireMasterAuth = requireMasterAuth
+    
+    @property
+    def method(self):
+        return self._method
+    
+    @method.setter
+    def method(self, value):
+        if type(value) == HTTPMethod:
+            self._method = value
+        else:
+            self._method = HTTPMethod(value)
+    
+    def __repr__(self) -> str:
+        # <HTTPPath: "/teams" via GET>
+        return f'<HTTPPath: "{self.url}" via {self.method}>'
+    
+    def __str__(self) -> str:
+        return f'"{self.url}" via {self.method}'
+    
+    @property
+    def obj(self) -> dict:
         return {
-            'GET': self.GET,
-            'POST': self.POST
+            'url': self.url,
+            'method': self.method.obj,
+            'requireAuth': self.requireAuth,
+            'requireMasterAuth': self.requireMasterAuth
         }
-
-class Param:
     
+    @classmethod
+    def load(cls, obj):
+        return cls(obj['url'], HTTPMethod.load(obj['method']))
+
+class Parameter:
     name: str
     value_type: str
     required: bool
+    default: str
     description: str
-    default_value: str
 
-    def __init__(self, name, value_type, required, description, default_value = None):
+    def __init__(self, name: str = '', value_type: str = 'null', required: bool = False, default: str = None, description = None):
         self.name = name
-
         self.value_type = value_type
-
-        if type(required) == bool:
-            self.required = required
-        else:
-            raise ValueError("Argument required must be a bool")
-        
+        self.required = required
+        self.default = default
         self.description = description
-        
-        self.default_value = default_value
     
-    def __str__(self):
-        return json.dumps(self.getObject())
+    def __repr__(self) -> str:
+        # <Parameter: test>
+        return f'<Parameter: {self.name}>'
+    
+    def __str__(self) -> str:
+        # (optional/required) parameter 'test'
+        if self.required:
+            return f'required parameter "{self.name}"'
+        else:
+            return f'optional parameter "{self.name}"'
+    
+    @property
+    def obj(self) -> dict:
+        obj = {
+            'name': self.name,
+            'value_type': self.value_type,
+            'required': self.required
+        }
+
+        if not self.required:
+            obj['default'] = self.default
+        
+        if self.description != None:
+            obj['description'] = self.description
+        return obj
     
     @classmethod
     def load(cls, obj):
         name = obj['name']
         value_type = obj['value_type']
-        description = obj['description']
         required = obj['required']
-        if required:
-            default_value = None
-        else:
-            default_value = obj['default_value']
-        return cls(name, value_type, required, description, default_value)
+        default = obj.get('default', None)
+        description = obj.get('default', None)
+        return cls(name, value_type, required, default, description)
+
+class CustomIterator:
+
+    def __init__(self, reference):
+        self._reference = reference
+        self._index = 0
     
-    def getObject(self):
-        if self.required:
-            return {
-                'name': self.name,
-                'value_type': self.value_type,
-                'required': True,
-                'description': self.description,
-                'default_value': 'N/A'
-            }
-        else:
-            return {
-                'name': self.name,
-                'value_type': self.value_type,
-                'required': False,
-                'description': self.description,
-                'default_value': self.default_value
-            }
+    def __next__(self):
+        if self._index >= len(self._reference): raise StopIteration
+        result = self._reference[self._index]
+        self._index += 1
+        return result
 
-class ContentType(Enum):
-    JSON = 0
+class Parameters:
+    _parameters: list[Parameter]
+    notes: str
 
-class PageLogic:
+    def __init__(self, parameters: list[Parameter] = [], notes: str = None):
+        self.parameters = parameters
+        self.notes = notes
     
-    steps: tuple[str]
-    error_handling: str
+    @property
+    def parameters(self):
+        return self._parameters
+    
+    @parameters.setter
+    def parameters(self, value):
+        if type(value) != list:
+            self._parameters = [value]
+        else:
+            self._parameters = value
+    
+    def __getitem__(self, key):
+        if type(key) != int: raise TypeError
+        return self.parameters[key]
+    
+    def __setitem__(self, key, value):
+        if type(key) != int: raise TypeError
+        if type(value) != Parameter: raise TypeError
+        self.parameters[key] = value
+    
+    def __repr__(self) -> str:
+        # <Parameters: [<Parameter: test>]>
+        # <Parameters: [<Parameter: test>, notes: "Test"]>
+        if self.notes == None:
+            return f'<Parameters: {repr(self.parameters)}>'
+        else:
+            return f'<Parameters: {repr(self.parameters)[:-1]}, notes: "{self.notes}"]>'
+    
+    def __str__(self) -> str:
+        # [<Parameter: test>]
+        # [<Parameter: test>, notes: "Test"]
+        if self.notes == None:
+            return repr(self.parameters)
+        else:
+            return f'{repr(self.parameters)[:-1]}, notes: "{self.notes}"]'
+    
+    def __iter__(self):
+        return CustomIterator(self)
+    
+    def __len__(self):
+        return len(self.parameters)
+    
+    def add(self, *parameters):
+        for parameter in parameters:
+            self.parameters.append(parameter)
+    
+    @property
+    def obj(self) -> dict:
+        parameters = []
+        for parameter in self.parameters:
+            parameters.append(parameter.obj)
+        obj = {
+            'parameters': parameters
+        }
+        if self.notes != None:
+            obj['notes'] = self.notes
+        return obj
+    
+    @classmethod
+    def load(cls, obj):
+        parameters = obj['parameters']
+        loaded_parameters = []
+        for parameter in parameters:
+            loaded_parameters.append(Parameter.load(parameter))
 
-    def __init__(self, steps, error_handling = None):
-        self.steps = steps
+        notes = obj.get('notes', None)
 
-        self.error_handling = error_handling
+        return Parameters(loaded_parameters, notes)
+
+class Response:
+    _status: HTTPStatus
+    content: str
+    context: str
+
+    def __init__(self, status = HTTPStatus.OK, content = None, context = None):
+        self.status = status
+        self.content = content
+        self.context = context
+    
+    @property
+    def status(self):
+        return self._status
+    
+    @status.setter
+    def status(self, value):
+        if type(value) == HTTPStatus:
+            self._status = value
+        elif type(value) == int:
+            self._status = HTTPStatus(value)
+        else:
+            self._status = HTTPStatus[value]
+    
+    @property
+    def status_code(self) -> int:
+        return self.status.value
+    
+    @property
+    def status_string(self) -> str:
+        return self.status.name
+    
+    def __repr__(self):
+        # <Response: 500 INTERNAL_SERVER_ERROR>
+        return f'<Response: {self.status_code} {self.status_string}>'
     
     def __str__(self):
-        return json.dumps(self.getObject())
+        # 500 INTERNAL_SERVER_ERROR
+        return f'{self.status_code} {self.status_string}'
+    
+    @property
+    def obj(self) -> dict:
+        obj = {
+            'status': self.status_code
+        }
+        if self.content != None:
+            obj['content'] = self.content
+        if self.context != None:
+            obj['context'] = self.context
+        return obj
+    
+    @classmethod
+    def load(cls, obj):
+        status = obj['status']
+        content = obj.get('content', None)
+        context = obj.get('context', None)
+        return Response(status, content, context)
+
+class Logic:
+    _steps: list[str]
+    notes: str
+
+    def __init__(self, steps = [], notes = None):
+        self.steps = steps
+        self.notes = notes
+    
+    @property
+    def steps(self):
+        return self._steps
+    
+    @steps.setter
+    def steps(self, value):
+        if type(value) == str:
+            self._steps = [value]
+        else:
+            self._steps = value
+
+    def __getitem__(self, key):
+        if type(key) != int: raise TypeError
+        return self.steps[key]
+    
+    def __setitem__(self, key, value):
+        if type(key) != int: raise TypeError
+        self.steps[key] = value
+    
+    def __len__(self):
+        return len(self.steps)
+    
+    def __iter__(self):
+        return CustomIterator(self)
+    
+    def add(self, *args: str):
+        for arg in args:
+            self.steps.append(arg)
+    
+    @property
+    def obj(self):
+        obj = {
+            'steps': self.steps
+        }
+        if self.notes != None:
+            obj['notes'] = self.notes
+        return obj
     
     @classmethod
     def load(cls, obj):
         steps = obj['steps']
-        error_handling = obj['error_handling']
-        return cls(steps, error_handling)
-    
-    def getObject(self):
-        if self.error_handling:
-            return {
-                'steps': self.steps,
-                'error_handling': self.error_handling
-            }
+        notes = obj.get('notes', None)
+        return cls(steps, notes)
 
-class Response:
-    
-    method: str
-    status_code: int
-    status: str
-    content: str
-    context: str
+class Subsection:
+    path: HTTPPath
+    parameters: Parameters
+    logic: Logic
+    responses: list[Response]
 
-    def __init__(self, method, status_code, content, context):
+    def __init__(self, path: HTTPPath = HTTPPath(''), parameters: Parameters = None, logic: Logic = None, responses: list[Response] = []):
+        self.path = path
+        self.parameters = parameters
+        self.logic = logic
+        self.responses = responses
 
-        method = str.upper(method)
-        if method != 'GET' and method != 'POST':
-            raise ValueError('Method must be either GET or POST')
-        self.method = method
-
-        self.status_code = status_code
-
-        self.status = HTTPStatus(status_code).name
-
-        self.content = content
-
-        self.context = context
-    
-    def __str__(self):
-        return json.dumps(self.getObject())
+    @property
+    def obj(self):
+        obj = {
+            'path': self.path.obj
+        }
+        if self.parameters != None:
+            obj['parameters'] = self.parameters.obj
+        if self.logic != None:
+            obj['logic'] = self.logic.obj
+        responses = []
+        for response in self.responses:
+            responses.append(response.obj)
+        obj['responses'] = responses
+        return obj
     
     @classmethod
     def load(cls, obj):
-        method = obj['method']
-        status_code = obj['status_code']
-        content = obj['content']
-        context = obj['context']
-        return cls(method, status_code, content, context)
+        path = HTTPPath.load(obj['path'])
+        parameters = obj.get('parameters', None)
+        if parameters != None:
+            parameters = Parameters.load(parameters)
+        logic = obj.get('logic', None)
+        if logic != None:
+            logic = Logic.load(logic)
+        responses = obj.get('responses', None)
+        calculated_responses = []
+        for response in responses:
+            calculated_responses.append(Response.load(response))
+        responses = calculated_responses
+        return cls(method, path, parameters, logic, responses)
 
-    def getObject(self):
-        return {
-            'method': self.method,
-            'status_code': self.status_code,
-            'status': self.status,
-            'content': self.content,
-            'context': self.context
-        }
-
-class Path:
-
+class Section:
     title: str
-    path: str
-    methods: Methods
-    query_params: tuple[Param]
-    request_params: tuple[Param]
-    logic: tuple[PageLogic]
-    responses: tuple[Response]
-    requireAuth: bool
-    requireMasterAuth: bool
-    
-    # things needed in a section about a path
-    # paths (get and/or post)
-    # Description (just add a title and placeholder)
-    # if GET, then Query Parameters (optional)
-    # if POST, then Request Parameters (optional)
-    # logic (optional)
-    # possible responses
-    # if GET & POST, then create seperate paths for get and post
+    _subsections: list[Subsection]
 
-    def __init__(self, title, path, methods, responses, query_params = None, request_params = None, logic = None, requireAuth = False, requireMasterAuth = False):
-
+    def __init__(self, title: str = 'Untitled', subsections = []):
         self.title = title
-        self.path = path
-        self.methods = methods
-        self.responses = responses
-        self.query_params = query_params
-        self.request_params = request_params
-        self.logic = logic
-        self.requireAuth = requireAuth
-        self.requireMasterAuth = requireMasterAuth
+        self.subsections = subsections
     
-    def getObject(self):
-
-        returnObj = {
-            'title': self.title,
-            'path': self.path,
-            'methods': self.methods.getObject(),
-            'requireAuth': self.requireAuth,
-            'requireMasterAuth': self.requireMasterAuth
+    @property
+    def subsections(self):
+        return self._subsections
+    
+    @subsections.setter
+    def subsections(self, value):
+        if type(value) != list:
+            self._subsections = [value]
+        else:
+            self._subsections = value
+    
+    def __getitem__(self, index):
+        if type(index) != int: raise TypeError
+        return self.subsections[index]
+    
+    def __setitem__(self, index, value):
+        if type(index) != int: raise TypeError
+        self.subsections[index] = value
+    
+    def __len__(self):
+        return len(self.subsections)
+    
+    def __iter__(self):
+        return CustomIterator(self)
+    
+    @property
+    def obj(self):
+        obj = {
+            'title': self.title
         }
-
-        responsesList = []
-        for response in self.responses:
-            responsesList.append(response.getObject())
-        returnObj['responses'] = responsesList
-
-        if self.query_params:
-            query_params_list = []
-            for query_param in self.query_params:
-                query_params_list.append(query_param.getObject())
-            returnObj['query_params'] = query_params_list
-        
-        if self.request_params:
-            request_params_list = []
-            for request_param in self.request_params:
-                request_params_list.append(request_param.getObject())
-            returnObj['request_params'] = request_params_list
-        
-        if self.logic:
-            returnObj['logic'] = self.logic.getObject()
-        
-        return returnObj
+        subsections = []
+        for subsection in self.subsections:
+            subsections.append(subsection.obj)
+        obj['subsections'] = subsections
     
-    def __str__(self):
-        return json.dumps(self.getObject())
+    @classmethod
+    def load(cls, obj):
+        title = obj['title']
+        subsections = obj['subsections']
+        calculated_subsections = []
+        for subsection in subsections:
+            calculated_subsections.append(Subsection.load(subsection))
+        subsections = calculated_subsections
+        return cls(title, subsections)
     
     def save(self, path):
         with open(path, 'w+') as f:
-            f.write(json.dumps(self.getObject()))
-
-    @classmethod
-    def load(cls, path):
-        with open(path, 'r') as f:
-            pathObject = json.loads(f.read())
-
-        title = pathObject['title']
-        path = pathObject['path']
-
-        methods = Methods.load(pathObject['methods'])
-
-        fResponses = pathObject['responses']
-        responses = []
-        for response in fResponses:
-            responses.append(Response.load(response))
-        
-        if pathObject.get('query_params'):
-            fQueryParams = pathObject['query_params']
-            query_params = []
-            for query_param in fQueryParams:
-                query_params.append(Param.load(query_param))
-        else:
-            query_params = None
-        
-        if pathObject.get('request_params'):
-            fRequestParams = pathObject['request_params']
-            request_params = []
-            for request_param in fRequestParams:
-                request_params.append(RequestParam.load(request_param))
-        else:
-            request_params = None
+            f.write(json.dumps(self.obj))
     
-        if pathObject.get('logic'):
-            fLogic = pathObject['logic']
-            logic = PageLogic.load(fLogic)
-        else:
-            logic = None
-        
-        requireAuth = pathObject['requireAuth']
-        requireMasterAuth = pathObject['requireMasterAuth']
-
-        return cls(title, path, methods, responses, query_params, request_params, logic, requireAuth, requireMasterAuth)
+    @classmethod
+    def load_file(cls, path):
+        with open(path, 'r') as f:
+            data = json.loads(f.read())
+            return cls.load(data)
     
     def render(self, path):
         with open(path, 'w+') as f:
@@ -300,58 +419,52 @@ class Path:
             f.write("\n")
             f.write("| Title | Path | Method | Requires Authentication | Requires Master Authentication |\n")
             f.write("|---|---|---|---|---|\n")
-
-            requireAuthSymbol = "✅" if self.requireAuth else "❌"
-            requireMasterAuthSymbol = "✅" if self.requireMasterAuth else "❌"
-
-            methodList = self.methods.getMethodList()
-            for method in methodList:
-                f.write(f"| [{self.title}]() | `{self.path}` | [{method}]() | {requireAuthSymbol} | {requireMasterAuthSymbol} |\n")
+            for s in self: # s = subsection
+                requireAuthSymbol = "✅" if s.path.requireAuth else "❌"
+                requireMasterAuthSymbol = "✅" if s.path.requireMasterAuth else "❌"
+                f.write(f"| [{self.title}]() | `{s.path.url}` | [{s.path.method}]() | {requireAuthSymbol} | {requireMasterAuthSymbol} |\n")
             f.write('\n')
-            
-            for method in methodList:
-                if len(methodList) == 2:
-                    f.write(f'### {method}\n')
+
+            for s in self: # s = subsection
+                if len(self) > 1:
+                    f.write(f'### {s.path.method}\n')
                     f.write('\n')
-            
+                
                 f.write('#### Description\n')
                 f.write('\n')
                 f.write('The description for the path goes here.\n')
                 f.write('\n')
 
-                if self.query_params != None:
+                if s.parameters != None and s.path.method == HTTPMethod.GET: # if parameters are set and method is GET
                     f.write('#### Query Parameters\n')
                     f.write('| Name | Value Type | Required | Default Value | Description |\n')
                     f.write('|---|---|---|---|---|\n')
-                    for param in self.query_params:
-                        required = "✅" if param.required else "❌"
-                        default = 'N/A' if param.required else f"`{param.default_value}`"
-                        f.write(f'| `{param.name}` | `{param.value_type}` | {required} | {default} | {param.description} |\n')
-                    f.write('\n')
                 
-                if self.request_params != None:
+                if s.parameters != None and s.path.method == HTTPMethod.POST: # if parameters are set and method is POST
                     f.write('#### Request Parameters\n')
                     f.write('This path only accepts JSON data. When sending a request, the `Content-Type` header must be set to `application/json`, and the request body must be a JSON string that contains all the parameters listed below.\n')
                     f.write('\n')
                     f.write('| Name | Value Type | Required | Default Value | Description |\n')
                     f.write('|---|---|---|---|---|\n')
-                    for param in self.query_params:
+                
+                if s.parameters != None:
+                    for param in s.parameters:
                         required = "✅" if param.required else "❌"
-                        default = 'N/A' if param.required else f"`{param.default_value}`"
-                        f.write(f'| `{param.name}` | `{param.value_type}` | {required} | {default} | {param.description} |\n')
+                        default = 'N/A' if param.required else f"`{param.default}`"
+                        f.write(f'| `{param.name}` | `{param.value_type}` | {required} | {default} | {param.description if param.description != None else "No description."} |\n')
                     f.write('\n')
-
-                if self.logic != None:
+                
+                if s.logic != None:
                     f.write('#### Logic\n')
-                    for index, line in enumerate(self.logic.steps):
+                    for index, line in enumerate(s.logic):
                         f.write(f'{index + 1}. {line}\n')
-                    if self.logic.error_handling != None:
+                    if s.logic.notes != None:
                         f.write('\n')
-                        f.write(self.logic.error_handling + '\n')
+                        f.write(s.logic.notes + '\n')
                     f.write('\n')
 
                 f.write('#### Possible Responses\n')
                 f.write('| Method | Status Code | Status | Content | Context |\n')
                 f.write('|---|---|---|---|---|\n')
-                for response in self.responses:
-                    f.write(f'| {response.method} | {response.status_code} | {response.status} | {response.content} | {response.context} |\n')
+                for response in s.responses:
+                    f.write(f'| {s.path.method} | {response.status_code} | {response.status_string} | {response.content if response.content != None else "No content"} | {response.context if response.context != None else "No context"} |\n')
