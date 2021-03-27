@@ -1,6 +1,7 @@
 from enum import Enum
 from http import HTTPStatus
 import json
+import re
 
 class HTTPMethod(Enum):
     GET = 'GET'
@@ -58,7 +59,9 @@ class HTTPPath:
     
     @classmethod
     def load(cls, obj):
-        return cls(obj['url'], HTTPMethod.load(obj['method']))
+        requireAuth = obj['requireAuth']
+        requireMasterAuth = obj['requireMasterAuth']
+        return cls(obj['url'], HTTPMethod.load(obj['method']), requireAuth, requireMasterAuth)
 
 class Parameter:
     name: str
@@ -106,7 +109,7 @@ class Parameter:
         value_type = obj['value_type']
         required = obj['required']
         default = obj.get('default', None)
-        description = obj.get('default', None)
+        description = obj.get('description', None)
         return cls(name, value_type, required, default, description)
 
 class CustomIterator:
@@ -312,12 +315,28 @@ class Subsection:
     parameters: Parameters
     logic: Logic
     responses: list[Response]
+    _description: str
 
-    def __init__(self, path: HTTPPath = HTTPPath(''), parameters: Parameters = None, logic: Logic = None, responses: list[Response] = []):
+    def __init__(self, path: HTTPPath = HTTPPath(''), parameters: Parameters = None, logic: Logic = None, responses: list[Response] = [], description: str = None):
         self.path = path
         self.parameters = parameters
         self.logic = logic
         self.responses = responses
+        self.description = description
+    
+    @property
+    def description(self):
+        return self._description
+    
+    @description.setter
+    def description(self, value):
+        if type(value) == str:
+            description = re.sub(r"^\n*", '', value) # remove any newlines at the start of the description
+            description = re.sub(r"\n*$", '', description) # remove any newlines at the end of the description
+            description = re.sub(r"(?<!\n)\n(?!\n)", ' ', description) # remove lone \n
+            self._description = description
+        else:
+            self._description = value
 
     @property
     def obj(self):
@@ -328,6 +347,8 @@ class Subsection:
             obj['parameters'] = self.parameters.obj
         if self.logic != None:
             obj['logic'] = self.logic.obj
+        if self.description != None:
+            obj['description'] = self.description
         responses = []
         for response in self.responses:
             responses.append(response.obj)
@@ -348,7 +369,8 @@ class Subsection:
         for response in responses:
             calculated_responses.append(Response.load(response))
         responses = calculated_responses
-        return cls(method, path, parameters, logic, responses)
+        description = obj.get('description', None)
+        return cls(path, parameters, logic, responses, description)
 
 class Section:
     title: str
@@ -392,6 +414,7 @@ class Section:
         for subsection in self.subsections:
             subsections.append(subsection.obj)
         obj['subsections'] = subsections
+        return obj
     
     @classmethod
     def load(cls, obj):
@@ -432,7 +455,10 @@ class Section:
                 
                 f.write('#### Description\n')
                 f.write('\n')
-                f.write('The description for the path goes here.\n')
+                if s.description != None:
+                    f.write(s.description)
+                else:
+                    f.write('Description for the subsection goes here.')
                 f.write('\n')
 
                 if s.parameters != None and s.path.method == HTTPMethod.GET: # if parameters are set and method is GET
