@@ -201,6 +201,51 @@ class Parameters:
 
         return Parameters(loaded_parameters, notes)
 
+class CriteriaType(Enum):
+    VALIDATION = 'validation'
+
+    def __str__(self):
+        return self.name
+    
+    @property
+    def obj(self):
+        return self.name
+    
+    @classmethod
+    def load(cls, obj):
+        return cls(obj)
+
+class CriteriaList:
+    _criteria_type: CriteriaType
+    criteria: list[str]
+
+    def __init__(self, criteria: list[str] = [], criteria_type: CriteriaType = CriteriaType.VALIDATION):
+        self.criteria = criteria
+        self.criteria_type = criteria_type
+    
+    @property
+    def criteria_type(self):
+        return self._criteria_type
+    
+    @criteria_type.setter
+    def criteria_type(self, value):
+        if type(value) == CriteriaType:
+            self._criteria_type = value
+        else:
+            self._criteria_type = CriteriaType(value)
+    
+    def __getitem__(self, index):
+        return self.criteria[index]
+    
+    def __setitem__(self, index, value):
+        self.criteria[index] = value
+    
+    def __len__(self):
+        return len(self.criteria)
+    
+    def __iter__(self):
+        return CustomIterator(self)
+
 class Response:
     _status: HTTPStatus
     content: str
