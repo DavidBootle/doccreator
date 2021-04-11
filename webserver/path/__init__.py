@@ -24,7 +24,7 @@ class HTTPPath:
     requireAuth: bool
     requireMasterAuth: bool
 
-    def __init__(self, url: str, method: HTTPMethod = HTTPMethod.GET, requireAuth: bool = False, requireMasterAuth: bool = False):
+    def __init__(self, url: 'the url of the path', method: HTTPMethod = HTTPMethod.GET, requireAuth: bool = False, requireMasterAuth: bool = False):
         self.url = url
         self.method = method
         self.requireAuth = requireAuth
@@ -70,7 +70,7 @@ class Parameter:
     default: str
     description: str
 
-    def __init__(self, name: str = '', value_type: str = 'null', required: bool = False, default: str = None, description = None):
+    def __init__(self, name: 'the key of the parameter' = '', value_type: 'the type of the parameter in the target language' = 'null', required: bool = False, default: str = None, description = None):
         self.name = name
         self.value_type = value_type
         self.required = required
