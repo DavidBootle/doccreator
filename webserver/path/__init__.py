@@ -494,3 +494,11 @@ class Section:
                 f.write('|---|---|---|---|---|\n')
                 for response in s.responses:
                     f.write(f'| {s.path.method} | {response.status_code} | {response.status_string} | {response.content if response.content != None else "No content"} | {response.context if response.context != None else "No context"} |\n')
+
+class CommonResponses:
+
+    REQUIRED_PARAMETERS_MISSING = Response(
+        status = 400,
+        content = '`One or more required parameters are missing.`',
+        context = 'A required parameter was not sent as part of the message body.'
+    )
