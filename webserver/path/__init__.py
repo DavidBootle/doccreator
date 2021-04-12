@@ -231,6 +231,7 @@ class CriteriaList:
     criteria: list[str]
 
     def __init__(self, criteria: list[str] = [], criteria_type: CriteriaType = CriteriaType.VALIDATION):
+        self.criteria = []
         for c in criteria:
             self.add_criteria(c)
 
