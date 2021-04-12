@@ -231,9 +231,18 @@ class CriteriaList:
     criteria: list[str]
 
     def __init__(self, criteria: list[str] = [], criteria_type: CriteriaType = CriteriaType.VALIDATION):
-        self.criteria = criteria
+        for c in criteria:
+            self.add_criteria(c)
+
         self.criteria_type = criteria_type
     
+    def add_criteria(self, criteria):
+        if type(criteria) == list:
+            for c in criteria:
+                self.add_criteria(c)
+        else:
+            self.criteria.append(criteria)
+
     @property
     def criteria_type(self):
         return self._criteria_type
