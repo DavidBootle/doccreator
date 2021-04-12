@@ -596,7 +596,7 @@ class GETResponses:
         context = 'A required parameter was not sent as part of the message body.'
     )
 
-    def VALIDATION_FAILED(criteria: CriteriaList):
+    def validation_failed(criteria: CriteriaList):
         
         dynamic_context = 'One of the following validation criteria was not met:<br><ul>'
         for i, c in enumerate(criteria):
@@ -629,7 +629,7 @@ class POSTResponses:
         context = 'A required parameter was not sent as part of the message body.'
     )
 
-    def VALIDATION_FAILED(criteria: CriteriaList):
+    def validation_failed(criteria: CriteriaList):
         
         dynamic_context = 'One of the following validation criteria was not met:<br><ul>'
         for i, c in enumerate(criteria):
@@ -642,21 +642,21 @@ class POSTResponses:
             context = dynamic_context
         )
 
-    def DATABASE_ERROR(modification: 'A fatal error occurred when attempting to ___.', lowercase = False):
+    def database_error(modification: 'A fatal error occurred when attempting to ___.', lowercase = False):
         return Response(
             status = 500,
             content = '`{"ok":false,"reason":"Database error","errorCode":"' + ( 'database_error' if lowercase else 'DATABASE_ERROR' ) + '"}`',
             context = f'A fatal error occurred when attempting to {modification}.'
         )
 
-    def FAILED_MODIFICATION(modification: 'The server attempted to ___ but was unsuccessful.', reason, errorCode):
+    def failed_modification(modification: 'The server attempted to ___ but was unsuccessful.', reason, errorCode):
         return Response(
             status = 500,
             content = '`{"ok":false,"reason":"' + reason + '","errorCode":"' + errorCode + '"}`',
             context = f'The server attempted to {modification} but was unsuccessful.'
         )
     
-    def OK(context, status=200):
+    def ok(context, status=200):
         return Response(
             status = status,
             content = '`{"ok":true}`',
