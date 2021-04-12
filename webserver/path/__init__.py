@@ -656,9 +656,9 @@ class POSTResponses:
             context = f'The server attempted to {modification} but was unsuccessful.'
         )
     
-    def OK(context):
+    def OK(context, status=200):
         return Response(
-            status = 200,
+            status = status,
             content = '`{"ok":true}`',
             context = context
         )
