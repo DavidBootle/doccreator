@@ -638,7 +638,7 @@ class POSTResponses:
 
         return Response(
             status = 400,
-            content = "`Parameter '${name}' failed to meet validation criteria.`",
+            content = "`Parameter '{name}' failed to meet validation criteria.`",
             context = dynamic_context
         )
 
