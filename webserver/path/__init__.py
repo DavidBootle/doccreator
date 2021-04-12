@@ -67,15 +67,26 @@ class Parameter:
     name: str
     value_type: str
     required: bool
-    default: str
+    _default: str
     description: str
 
     def __init__(self, name: 'the key of the parameter' = '', value_type: 'the type of the parameter in the target language' = 'null', required: bool = False, default: str = None, description = None):
         self.name = name
         self.value_type = value_type
         self.required = required
-        self.default = default
+        self._default = default
         self.description = description
+    
+    @property
+    def default(self):
+        return 'N/A' if self._default == None else self._default
+    
+    @default.setter
+    def default(self, value):
+        if value == 'N/A':
+            self._default = None
+        else:
+            self._default = value
     
     def __repr__(self) -> str:
         # <Parameter: test>
@@ -253,7 +264,12 @@ class Response:
 
     def __init__(self, status = HTTPStatus.OK, content = None, context = None):
         self.status = status
-        self.content = content
+
+        if type(content) == dict:
+            self.content = '`' + json.dumps(content) + '`'
+        else:
+            self.content = content
+
         self.context = context
     
     @property
@@ -482,7 +498,7 @@ class Section:
             return cls.load(data)
     
     def render(self, path):
-        with open(path, 'w+') as f:
+        with open(path, 'w+', encoding='utf-8') as f:
             f.write(f"## {self.title}\n")
             f.write("\n")
             f.write("| Title | Path | Method | Requires Authentication | Requires Master Authentication |\n")
@@ -537,13 +553,82 @@ class Section:
                 f.write('#### Possible Responses\n')
                 f.write('| Method | Status Code | Status | Content | Context |\n')
                 f.write('|---|---|---|---|---|\n')
-                for response in s.responses:
+
+                sorted_responses = sorted(s.responses, key=lambda response: response.status_code)
+                for response in sorted_responses:
                     f.write(f'| {s.path.method} | {response.status_code} | {response.status_string} | {response.content if response.content != None else "No content"} | {response.context if response.context != None else "No context"} |\n')
 
-class CommonResponses:
+class GETResponses:
 
     REQUIRED_PARAMETERS_MISSING = Response(
         status = 400,
         content = '`One or more required parameters are missing.`',
         context = 'A required parameter was not sent as part of the message body.'
     )
+
+    def VALIDATION_FAILED(criteria: CriteriaList):
+        
+        dynamic_context = 'One of the following validation criteria was not met:<br><ul>'
+        for i, c in enumerate(criteria):
+            dynamic_context += f"<li>{c}</li>"
+        dynamic_context += '</ul>'
+
+        return Response(
+            status = 400,
+            content = '`One or more required parameters did not meet validation requirements.`',
+            context = dynamic_context
+        )
+    
+    DATABASE_ERROR = Response(
+        status = 500,
+        content = 'Error page',
+        context = 'Database error'
+    )
+
+    REQUESTED_PAGE = Response(
+        status = 200,
+        content = 'Requested page',
+        context = 'Normal operation'
+    )
+
+class POSTResponses:
+
+    REQUIRED_PARAMETERS_MISSING = Response(
+        status = 400,
+        content = '`One or more required parameters are missing.`',
+        context = 'A required parameter was not sent as part of the message body.'
+    )
+
+    def VALIDATION_FAILED(criteria: CriteriaList):
+        
+        dynamic_context = 'One of the following validation criteria was not met:<br><ul>'
+        for i, c in enumerate(criteria):
+            dynamic_context += f"<li>{c}</li>"
+        dynamic_context += '</ul>'
+
+        return Response(
+            status = 400,
+            content = '`One or more required parameters did not meet validation requirements.`',
+            context = dynamic_context
+        )
+
+    def DATABASE_ERROR(modification: 'A fatal error occurred when attempting to ___.', lowercase = False):
+        return Response(
+            status = 500,
+            content = '`{"ok":false,"reason":"Database error","errorCode":"' + ( 'database_error' if lowercase else 'DATABASE_ERROR' ) + '"}`',
+            context = f'A fatal error occurred when attempting to {modification}.'
+        )
+
+    def FAILED_MODIFICATION(modification: 'The server attempted to ___ but was unsuccessful.', reason, errorCode):
+        return Response(
+            status = 500,
+            content = '`{"ok":false,"reason":"' + reason + '","errorCode":"' + errorCode + '"}`',
+            context = f'The server attempted to {modification} but was unsuccessful.'
+        )
+    
+    def OK(context):
+        return Response(
+            status = 200,
+            content = '`{"ok":true}`',
+            context = context
+        )
