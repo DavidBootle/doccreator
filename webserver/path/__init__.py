@@ -257,6 +257,26 @@ class CriteriaList:
     def __iter__(self):
         return CustomIterator(self)
 
+class CriteriaPreset:
+    def TEAM_NAME(param_name = 'name'):
+        return [
+            f'`{param_name}` must be at least 1 character',
+            f'`{param_name}` must be at most 40 characters',
+            f'`{param_name}` must follow pattern `^[A-Za-z0-9 \-_\(\):]+$`'
+        ]
+    def TEAM_ID(param_name = 'id'):
+        return [
+            f'`{param_name}` must be exactly 3 characters',
+            f'`{param_name}` must follow pattern `^[0-9]*$`'
+        ]
+    def TEAM_SCORE(param_name = 'score'):
+        return [
+            f'`{param_name}` must be at least one character',
+            f'`{param_name}` must be at most 30 characters',
+            f'`{param_name}` must follow pattern `^\-?[0-9]+$`',
+            f'`{param_name}` must be an integer'
+        ]
+
 class Response:
     _status: HTTPStatus
     content: str
