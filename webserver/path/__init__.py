@@ -642,17 +642,17 @@ class POSTResponses:
             context = dynamic_context
         )
 
-    def database_error(modification: 'A fatal error occurred when attempting to ___.', lowercase = False):
+    def database_error(modification: 'A fatal error occurred when attempting to ___.'):
         return Response(
             status = 500,
-            content = '`{"ok":false,"reason":"Database error","errorCode":"' + ( 'database_error' if lowercase else 'DATABASE_ERROR' ) + '"}`',
+            content = '`Database error`',
             context = f'A fatal error occurred when attempting to {modification}.'
         )
 
-    def failed_modification(modification: 'The server attempted to ___ but was unsuccessful.', reason, errorCode):
+    def failed_modification(modification: 'The server attempted to ___ but was unsuccessful.', message):
         return Response(
             status = 500,
-            content = '`{"ok":false,"reason":"' + reason + '","errorCode":"' + errorCode + '"}`',
+            content = f'`{message}`',
             context = f'The server attempted to {modification} but was unsuccessful.'
         )
     
@@ -662,3 +662,6 @@ class POSTResponses:
             content = '`{"ok":true}`',
             context = context
         )
+
+def code(string):
+    return f'`{string}`'
