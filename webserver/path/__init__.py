@@ -268,18 +268,18 @@ class CriteriaList:
         return CustomIterator(self)
 
 class CriteriaPreset:
-    def TEAM_NAME(param_name = 'name'):
+    def team_name(param_name = 'name'):
         return [
             f'`{param_name}` must be at least 1 character',
             f'`{param_name}` must be at most 40 characters',
             f'`{param_name}` must follow pattern `^[A-Za-z0-9 \-_\(\):]+$`'
         ]
-    def TEAM_ID(param_name = 'id'):
+    def team_id(param_name = 'id'):
         return [
             f'`{param_name}` must be exactly 3 characters',
             f'`{param_name}` must follow pattern `^[0-9]*$`'
         ]
-    def TEAM_SCORE(param_name = 'score'):
+    def team_score(param_name = 'score'):
         return [
             f'`{param_name}` must be at least one character',
             f'`{param_name}` must be at most 30 characters',
@@ -659,7 +659,7 @@ class POSTResponses:
     def ok(context, status=200):
         return Response(
             status = status,
-            content = '`{"ok":true}`',
+            content = '`ok`',
             context = context
         )
 
